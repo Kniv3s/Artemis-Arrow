@@ -34,3 +34,5 @@ Try {
   Start-Process -FilePath sc.exe -ArgumentList 'config ArtemisArrow start= delayed-auto'
 }
 Catch { Write-Host -f red "An error occured setting the service to delayed start." }
+
+netsh interface ipv4 set subinterface "$((get-netipaddress | ? {$_.IpAddress -match "10.10"}).InterfaceAlias)" mtu=1600 store=persistent
