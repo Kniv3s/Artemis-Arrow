@@ -1,7 +1,6 @@
 from distutils.core import setup
 import py2exe, sys, os, shutil
 
-shutil.copyfile('C:\\Users\\zachc\\ArtemisArrow.py', 'ArtemisArrow.py')
 sys.argv.append('py2exe')
 
 
