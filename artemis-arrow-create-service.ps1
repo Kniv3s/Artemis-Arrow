@@ -1,39 +1,51 @@
-#Copy all items from zip to specific directory
-$sourcePath = @( Get-Item .\dist ).FullName
-$destPath = "C:\Program Files (x86)\Artemis Arrow"
-$fileList = @(Get-ChildItem -Path .\dist -File -Recurse)
-$directoryList = @(Get-ChildItem -Path .\dist -Directory -Recurse)
-ForEach($directory in $directoryList){
-    $directories = New-Item ($directory.FullName).Replace("$($sourcePath)",$destPath) -ItemType Directory -ea SilentlyContinue | Out-Null
-}
-ForEach($file in $fileList){
-    try {
-        Copy-Item -Path $file.FullName -Destination ((Split-Path $file.FullName).Replace("$($sourcePath)",$destPath)) -Force -ErrorAction Stop
-    }
-    catch{
-        Write-Warning "Unable to move '$($file.FullName)' to '$(((Split-Path $file.FullName).Replace("$($sourcePath)",$destPath)))': $($_)"
-        return
-    }
-}
-#see if the npac drivers exist, if not install
-if (-not (Test-Path "C:\Windows\System32\drivers\npcap.sys") ){
-	.\npcap-1.80.exe
-}
-#if a service already exists, delete it
-if (Get-Service ArtemisArrow -ErrorAction SilentlyContinue) {
-  $service = Get-WmiObject -Class Win32_Service -Filter "name='ArtemisArrow'"
-  $service.StopService()
-  Start-Sleep -s 1
-  $service.delete()
-}
-#make a new service
-New-Service -name ArtemisArrow `
-  -displayName "ArtemisArrow" `
-  -binaryPathName "`"C:\Program Files (x86)\Artemis Arrow\ArtemisArrow.exe`""
-#register the service to delayed start to make persistent
-Try {
-  Start-Process -FilePath sc.exe -ArgumentList 'config ArtemisArrow start= delayed-auto'
-}
-Catch { Write-Host -f red "An error occured setting the service to delayed start." }
-#change MTU size of outbound interface in order to account for extra bytes from VXLAN encapsulation
-netsh interface ipv4 set subinterface "$((get-netipaddress | ? {$_.IpAddress -match 10.10}).InterfaceAlias)" mtu=1600 store=persistent
+from tendo import singleton
+
+me = singleton.SingleInstance()
+
+import scapy.all as scapy
+from scapy.all import conf
+from scapy.layers.inet import IP, UDP
+from scapy.packet import Raw
+from scapy.sendrecv import send
+import yaml, sys, os, hashlib, signal
+
+try:
+    with open('C:\Program Files (x86)\Artemis Arrow\conf.yaml', 'r') as f:
+        conf = yaml.safe_load(f)
+        dip = conf['target']['ip']
+        dport = conf['target']['port']
+        vid = conf['target']['vid']
+        mtu = conf['target']['mtu']
+        
+except FileNotFoundError:
+    print(f"Error: Config file '{config_file}' not found")
+    sys.exit(1)
+except yaml.YAMLError as e:
+    print(f"Error parsing YAML file: {e}")
+    sys.exit(1)
+    
+payload = b'\x08\x00\x00\x00' + int(vid).to_bytes(3, byteorder='big') + b'\x00'
+filterText = f"not (udp and dst host {dip} and dst port {dport}) and not net 10.10"
+signal.signal( signal.SIGINT, lambda s, f : sys.exit(0))
+
+def modify_and_forward_packet(packet):
+    try:
+        packetPayload = payload + bytes(packet)
+        vxlanPacket = IP(dst=dip)/UDP(dport=dport, sport=calc_sport(packet))/Raw(load=packetPayload)
+        if len(vxlanPacket) <= mtu:
+            send(vxlanPacket, verbose=False)
+        else:
+            for p in scapy.fragment(vxlanPacket, mtu - 50):
+                send(p)
+    except:
+        pass
+
+def calc_sport(packet):
+    return 49152 + ( int(hashlib.sha1(bytes(packet)).hexdigest(), 16) % (65536-49152) )
+
+def main():
+    while(True):
+        scapy.sniff(filter=filterText, prn=lambda pkt: modify_and_forward_packet(pkt), store=0)
+
+if __name__ == "__main__":
+    main()
