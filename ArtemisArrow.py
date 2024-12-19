@@ -7,7 +7,7 @@ from scapy.all import conf
 from scapy.layers.inet import IP, UDP
 from scapy.packet import Raw
 from scapy.sendrecv import send
-import yaml, sys, os, hashlib, signal
+import yaml, sys, os, hashlib, signal, psutil, socket
 
 try:
     with open('C:\Program Files (x86)\Artemis Arrow\conf.yaml', 'r') as f:
@@ -22,6 +22,19 @@ except yaml.YAMLError as e:
     print(f"Error parsing YAML file: {e}")
     sys.exit(1)
     
+def find_mtu(ip, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect((dip, dport))
+    sip = s.getsockname()[0]
+    s.close()
+    for interface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.address == sip:
+                return psutil.net_if_stats()[interface].mtu
+                
+mtu = find_mtu(dip, dport)        
+
+    
 payload = b'\x08\x00\x00\x00' + int(vid).to_bytes(3, byteorder='big') + b'\x00'
 filterText = f"not (udp and dst host {dip} and dst port {dport}) and not net 10.10"
 signal.signal( signal.SIGINT, lambda s, f : sys.exit(0))
@@ -29,8 +42,12 @@ signal.signal( signal.SIGINT, lambda s, f : sys.exit(0))
 def modify_and_forward_packet(packet):
     try:
         packetPayload = payload + bytes(packet)
-        packet_ = IP(dst=dip)/UDP(dport=dport, sport=calc_sport(packet))/Raw(load=packetPayload)
-        send(packet_, verbose=False)
+        vxlanPacket = IP(dst=dip)/UDP(dport=dport, sport=calc_sport(packet))/Raw(load=packetPayload)
+        if len(vxlanPacket) <= mtu:
+            send(vxlanPacket, verbose=False)
+        else:
+            for p in scapy.fragment(vxlanPacket, mtu - 50):
+                send(p)
     except:
         pass
 
