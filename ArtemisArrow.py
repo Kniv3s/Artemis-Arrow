@@ -22,19 +22,16 @@ except yaml.YAMLError as e:
     print(f"Error parsing YAML file: {e}")
     sys.exit(1)
     
-def find_mtu(ip, port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     s.connect((dip, dport))
     sip = s.getsockname()[0]
     s.close()
     for interface, addrs in psutil.net_if_addrs().items():
         for addr in addrs:
             if addr.address == sip:
-                return psutil.net_if_stats()[interface].mtu
-                
-mtu = find_mtu(dip, dport)        
+                mtu = psutil.net_if_stats()[interface].mtu
+                break
 
-    
 payload = b'\x08\x00\x00\x00' + int(vid).to_bytes(3, byteorder='big') + b'\x00'
 filterText = f"not (udp and dst host {dip} and dst port {dport}) and not net 10.10"
 signal.signal( signal.SIGINT, lambda s, f : sys.exit(0))
