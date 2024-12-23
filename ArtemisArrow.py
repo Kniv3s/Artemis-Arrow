@@ -44,7 +44,7 @@ def modify_and_forward_packet(packet):
             send(vxlanPacket, verbose=False)
         else:
             for p in scapy.fragment(vxlanPacket, mtu - 50):
-                send(p)
+                send(p, verbose-False)
     except:
         pass
 
