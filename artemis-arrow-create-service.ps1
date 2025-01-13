@@ -1,23 +1,7 @@
-$sourcePath = @( Get-Item .\dist ).FullName
-$destPath = "C:\Program Files (x86)\Artemis Arrow"
-$fileList = @(Get-ChildItem -Path .\dist -File -Recurse)
-$directoryList = @(Get-ChildItem -Path .\dist -Directory -Recurse)
-ForEach($directory in $directoryList){
-    $directories = New-Item ($directory.FullName).Replace("$($sourcePath)",$destPath) -ItemType Directory -ea SilentlyContinue | Out-Null
-}
-ForEach($file in $fileList){
-    try {
-        Copy-Item -Path $file.FullName -Destination ((Split-Path $file.FullName).Replace("$($sourcePath)",$destPath)) -Force -ErrorAction Stop
-    }
-    catch{
-        Write-Warning "Unable to move '$($file.FullName)' to '$(((Split-Path $file.FullName).Replace("$($sourcePath)",$destPath)))': $($_)"
-        return
-    }
-}
 
-if (-not (Test-Path "C:\Windows\System32\drivers\npcap.sys") ){
-	.\npcap-1.80.exe
-}
+$destPath = "C:\Program Files (x86)\Artemis Arrow"
+Copy-Item -Path .\ArtemisArrow.exe -Destination $destPath
+Copy-Item -Path .\config.json.exe -Destination $destPath
 
 if (Get-Service ArtemisArrow -ErrorAction SilentlyContinue) {
   $service = Get-WmiObject -Class Win32_Service -Filter "name='ArtemisArrow'"
