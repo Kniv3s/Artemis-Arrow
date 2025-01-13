@@ -5,4 +5,4 @@ open console in directory <br>
 
 copy the exe and config into a folder with the ps1 script <br>
 move to desired host <br>
-run ps1 script
+run ps1 script as admin
