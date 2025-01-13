@@ -1,7 +1,7 @@
 
 $destPath = "C:\Program Files (x86)\Artemis Arrow"
 Copy-Item -Path .\ArtemisArrow.exe -Destination $destPath
-Copy-Item -Path .\config.json.exe -Destination $destPath
+Copy-Item -Path .\config.json -Destination $destPath
 
 if (Get-Service ArtemisArrow -ErrorAction SilentlyContinue) {
   $service = Get-WmiObject -Class Win32_Service -Filter "name='ArtemisArrow'"
