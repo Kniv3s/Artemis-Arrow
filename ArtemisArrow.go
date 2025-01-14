@@ -14,11 +14,11 @@ import (
 ) 
 //configuration file structure
 type Config struct {
-	DestHost string `json:"destHost"`
-	ControlNet string `json:"controlNet"`
-	DestPort int    `json:"destPort"`
-	VNI      uint32 `json:"vni"`
-	Filter	 string `json:"filter"`
+	DestHost	string	`json:"destHost"`
+	ControlNet	string	`json:"controlNet"`
+	DestPort	int	`json:"destPort"`
+	VNI		uint32	`json:"vni"`
+	Filter		string	`json:"filter"`
 }
 //helper for the VXLAN header
 type VXLANHeader struct {
@@ -29,12 +29,12 @@ type VXLANHeader struct {
 }
 //constants
 const (
-	VXLAN_HEADER_SIZE     = 8 //header size from RFC
-	PORT_MIN             = 49152 //port min and max from RFC
-	PORT_MAX             = 65535 //port min and max from RFC
-	PORT_RANGE           = PORT_MAX - PORT_MIN + 1
-	VERBOSE				 = 2 //2 is everything, 1 everything but packet send, 0 is none
-	SEND_PACKET			 = true //for debuggin without packets
+	VXLAN_HEADER_SIZE	= 8 	//header size from RFC
+	PORT_MIN		= 49152 //port min and max from RFC
+	PORT_MAX		= 65535 //port min and max from RFC
+	PORT_RANGE		= PORT_MAX - PORT_MIN + 1
+	VERBOSE			= 2 	//2 is everything, 1 everything but packet send, 0 is none
+	SEND_PACKET		= true 	//for debuggin without packets
 )
 //global variables for config to load into
 var destHost string
@@ -43,11 +43,11 @@ var destPort int
 var vni uint32
 var filter string
 //helper function for error logging
-//err		the possible error being logged (nil is fine)
-//msg		what to log should an error be passed
-//fatal		optional bool if false will not be fatal, just logged
+//err		The possible error being logged (nil is fine)
+//msg		What to log should an error be passed
+//fatal		Optional bool if false will not be fatal, just logged
 //
-//returns	true if a non-fatal error was logged, false otherwise
+//returns true if a non-fatal error was logged, false otherwise
 func logError(err error, msg string, fatal_ ...bool) bool {
 	fatal := true
 	if len(fatal_) > 0 {
@@ -66,9 +66,9 @@ func logError(err error, msg string, fatal_ ...bool) bool {
 	return false
 }
 //loads the config json and populates global vars
-//filename		the filename of the config file
+//filename		The filename of the config file
 //
-//error	Any error that is encounted gets returned
+//returns any error that is encounted
 func loadConfig(filename string) error {
     file, err := os.ReadFile(filename)
     if err != nil {
@@ -89,7 +89,7 @@ func loadConfig(filename string) error {
 	return nil
 }
 //capture traffic from a given device name and handle all packets not filtered
-//deviceName		the pcap diven device name that will be listened on
+//deviceName		The pcap diven device name that will be listened on
 func captureFromInterface(deviceName string) { 
 	handle, err := pcap.OpenLive(deviceName, 65536, true, pcap.BlockForever) 
 	//allow for the pcap to not open and just skip interface
@@ -125,9 +125,9 @@ func captureFromInterface(deviceName string) {
 //helper function to calculate source port based on the originial pre-encapsulation packet for sending
 //off to a VXLAN endpoint. RFC recomends source port be based off a hash of orinial packet ipv4 info,
 //but we are fibbing a bit as this is a non-standard use of VXLAN.
-//packet		the original packet pre-encapsulation
+//packet		The original packet pre-encapsulation
 //
-//srcPort		a possitive number between 49152 and 65535 based on a hash of the netflow 
+//srcPort		A possitive number between 49152 and 65535 based on a hash of the netflow 
 func calculateSourcePort(packet gopacket.Packet) (srcPort uint16) {
 	//should a netflow not be able to be created form packet, default to 65535
 	defer func() {
@@ -141,9 +141,9 @@ func calculateSourcePort(packet gopacket.Packet) (srcPort uint16) {
 	return uint16( (netFlow.FastHash() % PORT_RANGE) + PORT_MIN )
 }
 //helper function to prepend a VXLAN header to the packet with the config derived info
-//packet		the byte array of the packet. should be all bytes from original packet
+//packet		The byte array of the packet. should be all bytes from original packet
 //
-//returns		the encapsulated packet data. this hsould be the payload of a UDP packet sent to a VXLAN endpoint
+//returns		The encapsulated packet data. this hsould be the payload of a UDP packet sent to a VXLAN endpoint
 func encapsulateVXLAN(packet []byte) []byte {
     header := VXLANHeader{
         Flags: 0x08,
@@ -156,17 +156,17 @@ func encapsulateVXLAN(packet []byte) []byte {
     return vxlanPacket
 }
 //helper function to create the connection and send the packet
-//srcPort		the source port to send from
-//payload		the payload of the packet to send. should be a VXLAN encapsulated packet without a L2 or L3 header		
+//srcPort		The source port to send from
+//payload		The payload of the packet to send. should be a VXLAN encapsulated packet without a L2 or L3 header		
 func sendUDPPacket(srcPort uint16, payload []byte) {
 	//bind local and remote port, then open
 	// if any errors are encounted log and discard packet
-    localAddr := &net.UDPAddr{Port: int(srcPort)}
-    remoteAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", destHost, destPort))
-    if logError(err, fmt.Sprintf("Failed to resolve %s:%d", destHost, destPort), false) {
+	localAddr := &net.UDPAddr{Port: int(srcPort)}
+	remoteAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", destHost, destPort))
+	if logError(err, fmt.Sprintf("Failed to resolve %s:%d", destHost, destPort), false) {
 		return
 	}
-    vxlanConn, err := net.DialUDP("udp", localAddr, remoteAddr)
+	vxlanConn, err := net.DialUDP("udp", localAddr, remoteAddr)
 	if logError(err, fmt.Sprintf("Error creating VXLAN connection for port %d", srcPort), false ) {
 		return
 	}
